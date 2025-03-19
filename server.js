@@ -11,26 +11,19 @@ const wss = new WebSocket.Server({ server });
 
 // Настройка CORS
 const corsOptions = {
-    origin: 'http://localhost:8888', // Разрешаете только данный источник
+    origin: 'http://localhost:8888', // URL вашего клиентского приложения
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type'], // Заголовки, которые вы хотите разрешить
+    allowedHeaders: ['Content-Type'],
 };
 
 app.use(cors(corsOptions)); // Включите CORS с заданными опциями
 
 app.use(bodyParser.json());
-app.use(cors()); // Этот вызов можно убрать, если используется вышеуказанный cors
+
 
 const clients = {}; // Список активных пользователей
 const messages = []; // Хранение сообщений
 
-// Обслуживание статических файлов (например, index.html)
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Рендеринг index.html при запросе к '/'
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src', 'index.html'));
-});
 
 // API для логина
 app.post('/login', (req, res) => {
