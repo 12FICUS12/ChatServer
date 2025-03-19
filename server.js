@@ -9,13 +9,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-app.use(bodyParser.json());
-app.use(cors()); // Позволяет любому источнику делать запросы к вашему серверу
-
-const clients = {}; // Список активных пользователей
-const messages = []; // Хранение сообщений
-
-
+// Настройка CORS
 const corsOptions = {
     origin: 'http://localhost:8888', // Разрешаете только данный источник
     methods: ['GET', 'POST'],
@@ -23,6 +17,13 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions)); // Включите CORS с заданными опциями
+
+app.use(bodyParser.json());
+app.use(cors()); // Этот вызов можно убрать, если используется вышеуказанный cors
+
+const clients = {}; // Список активных пользователей
+const messages = []; // Хранение сообщений
+
 // Обслуживание статических файлов (например, index.html)
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -51,17 +52,18 @@ app.get('/check', (req, res) => {
 
 // Обработка соединения WebSocket
 wss.on('connection', (ws) => {
-    let username; 
+    let username; // Определяем username здесь
 
     ws.on('message', (message) => {
         const data = JSON.parse(message);
         if (data.type === 'login') {
-            username = data.username; // сохраняем логин
+            username = data.username; // Сохраняем имя пользователя
             clients[username] = true; // Добавляем клиента к списку
             console.log(`${username} подключен`);
             notifyUsers(); // Уведомляем всех о новом подключении
         }
 
+        // Обработка сообщений
         if (data.type === 'message') {
             const msgData = {
                 name: data.username,
@@ -76,9 +78,11 @@ wss.on('connection', (ws) => {
 
     // Обработка отключения клиента
     ws.on('close', () => {
-        console.log(`${username} отключен`);
-        delete clients[username]; // Удаляем пользователя из списка
-        notifyUsers(); // Уведомляем об обновленном списке пользователей
+        if (username) {
+            console.log(`${username} отключен`);
+            delete clients[username]; // Удаляем пользователя из списка
+            notifyUsers(); // Уведомляем об обновленном списке пользователей
+        }
     });
 });
 
