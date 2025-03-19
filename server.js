@@ -3,6 +3,7 @@ const WebSocket = require('ws');
 const http = require('http');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const path = require('path'); // Не забудьте импортировать path
 
 const app = express();
 const server = http.createServer(app);
@@ -10,16 +11,18 @@ const wss = new WebSocket.Server({ server });
 
 app.use(bodyParser.json());
 app.use(cors()); // Позволяет любому источнику делать запросы к вашему серверу
+
 const clients = {}; // Список активных пользователей
 const messages = []; // Хранение сообщений
 
-// После установки middleware для статических файлов
+// Обслуживание статических файлов (например, index.html)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Рендеринг index.html
+// Рендеринг index.html при запросе к '/'
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 // API для логина
 app.post('/login', (req, res) => {
     const { login } = req.body;
@@ -38,36 +41,37 @@ app.get('/check', (req, res) => {
     return res.json({ status: true });
 });
 
-wss.on('connection', (ws, req) => {
-    const params = new URLSearchParams(req.url.split('?')[1]);
-    const username = params.get('login');
+// Обработка соединения WebSocket
+wss.on('connection', (ws) => {
+    let username; 
 
-    if (username) {
-        console.log(`${username} подключен`);
-        notifyUsers(); // Уведомляем всех о новом подключении
+    ws.on('message', (message) => {
+        const data = JSON.parse(message);
+        if (data.type === 'login') {
+            username = data.username; // сохраняем логин
+            clients[username] = true; // Добавляем клиента к списку
+            console.log(`${username} подключен`);
+            notifyUsers(); // Уведомляем всех о новом подключении
+        }
 
-        // Когда клиент отправляет сообщение
-        ws.on('message', (message) => {
-            const data = JSON.parse(message);
-            if (data.type === 'message') {
-                const msgData = {
-                    name: username,
-                    message: data.message,
-                    type: 'message',
-                    date: new Date().toLocaleTimeString()
-                };
-                messages.push(msgData);
-                notifyClients(msgData); // Отправляем сообщение всем клиентам
-            }
-        });
+        if (data.type === 'message') {
+            const msgData = {
+                name: data.username,
+                message: data.message,
+                type: 'message',
+                date: new Date().toLocaleTimeString()
+            };
+            messages.push(msgData);
+            notifyClients(msgData); // Отправляем сообщение всем клиентам
+        }
+    });
 
-        // Обработка отключения клиента
-        ws.on('close', () => {
-            console.log(`${username} отключен`);
-            delete clients[username]; // Удаляем пользователя из списка
-            notifyUsers(); // Уведомляем об обновленном списке пользователей
-        });
-    }
+    // Обработка отключения клиента
+    ws.on('close', () => {
+        console.log(`${username} отключен`);
+        delete clients[username]; // Удаляем пользователя из списка
+        notifyUsers(); // Уведомляем об обновленном списке пользователей
+    });
 });
 
 // Функция для уведомления всех клиентов о новом сообщении
@@ -75,6 +79,20 @@ function notifyClients(msgData) {
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(msgData));
+        }
+    });
+}
+
+// Функция для уведомления всех подключенных пользователей
+function notifyUsers() {
+    const userData = {
+        names: Object.keys(clients),
+        type: 'user'
+    };
+
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(userData));
         }
     });
 }
