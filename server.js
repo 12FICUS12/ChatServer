@@ -13,6 +13,13 @@ app.use(cors()); // Позволяет любому источнику дела�
 const clients = {}; // Список активных пользователей
 const messages = []; // Хранение сообщений
 
+// После установки middleware для статических файлов
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Рендеринг index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 // API для логина
 app.post('/login', (req, res) => {
     const { login } = req.body;
